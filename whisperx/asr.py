@@ -325,6 +325,12 @@ def load_model(whisper_arch,
         "hallucination_silence_threshold": None,
         "hotwords": None,
     }
+    more_options = {
+        "max_new_tokens": None,
+        "clip_timestamps": None,
+        "hallucination_silence_threshold": None,
+    }
+    default_asr_options.update(more_options)
 
     if asr_options is not None:
         default_asr_options.update(asr_options)

@@ -80,7 +80,7 @@ class WhisperModel(faster_whisper.WhisperModel):
         to_cpu = self.model.device == "cuda" and len(self.model.device_index) > 1
         # unsqueeze if batch size = 1
         if len(features.shape) == 2:
-            features = np.expand_dims(features, 0)
+            features = torch.unsqueeze(features, 0)
         features = faster_whisper.transcribe.get_ctranslate2_storage(features)
 
         return self.model.encode(features, to_cpu=to_cpu)

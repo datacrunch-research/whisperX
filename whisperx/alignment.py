@@ -356,63 +356,25 @@ def align(
 """
 source: https://pytorch.org/tutorials/intermediate/forced_alignment_with_torchaudio_tutorial.html
 """
-import torch
-import logging
-from typing import Tuple
-
-def get_trellis(emission: torch.Tensor, tokens: list, blank_id: int = 0) -> Tuple[torch.Tensor, dict]:
-    """Compact trellis calculation with essential error checking and logging."""
-    logger = logging.getLogger(__name__)
-    logger.setLevel(logging.DEBUG)
-    
-    debug = {
-        'shape': f"emission: {emission.shape}, tokens: {len(tokens)}",
-        'errors': []
-    }
-    
-    try:
-        # Validate dimensions
-        num_frame, vocab_size = emission.shape
-        num_tokens = len(tokens)
-        if max(tokens) >= vocab_size:
-            raise ValueError(f"Token {max(tokens)} >= vocab_size {vocab_size}")
-            
-        logger.debug(f"Creating trellis ({num_frame + 1}, {num_tokens + 1})")
-        
-        # Initialize trellis
-        trellis = torch.full((num_frame + 1, num_tokens + 1), float("-inf"))
-        trellis[0, 0] = 0
-        
-        # First column initialization
-        try:
-            trellis[1:, 0] = torch.cumsum(emission[:, blank_id], 0)
-        except Exception as e:
-            debug['errors'].append(f"Cumsum failed: {str(e)}")
-            raise
-            
-        # Main computation
-        tokens_tensor = torch.tensor(tokens)
-        for t in range(num_frame):
-            try:
-                trellis[t + 1, 1:] = torch.maximum(
-                    trellis[t, 1:] + emission[t, blank_id],
-                    trellis[t, :-1] + emission[t, tokens_tensor]
-                )
-                
-                if torch.any(torch.isnan(trellis[t + 1, 1:])):
-                    debug['errors'].append(f"NaN at t={t}")
-                    
-            except Exception as e:
-                debug['errors'].append(f"Failed at t={t}: {str(e)}")
-                logger.error(f"Step {t} failed with shape {trellis[t + 1, 1:].shape}")
-                raise
-                
-        return trellis, debug
-        
-    except Exception as e:
-        debug['errors'].append(str(e))
-        logger.error(f"Failed with debug info: {debug}")
-        raise
+def get_trellis(emission, tokens, blank_id=0):
+    num_frame = emission.size(0)
+    num_tokens = len(tokens)
+    # Trellis has extra diemsions for both time axis and tokens.
+    # The extra dim for tokens represents <SoS> (start-of-sentence)
+    # The extra dim for time axis is for simplification of the code.
+    trellis = torch.empty((num_frame + 1, num_tokens + 1))
+    trellis[0, 0] = 0
+    trellis[1:, 0] = torch.cumsum(emission[:, 0], 0)
+    trellis[0, -num_tokens:] = -float("inf")
+    trellis[-num_tokens:, 0] = float("inf")
+    for t in range(num_frame):
+        trellis[t + 1, 1:] = torch.maximum(
+            # Score for staying at the same token
+            trellis[t, 1:] + emission[t, blank_id],
+            # Score for changing to the next token
+            trellis[t, :-1] + emission[t, tokens],
+        )
+    return trellis
 
 @dataclass
 class Point:

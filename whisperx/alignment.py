@@ -359,6 +359,7 @@ source: https://pytorch.org/tutorials/intermediate/forced_alignment_with_torchau
 def get_trellis(emission, tokens, blank_id=0):
     num_frame = emission.size(0)
     num_tokens = len(tokens)
+
     # Trellis has extra diemsions for both time axis and tokens.
     # The extra dim for tokens represents <SoS> (start-of-sentence)
     # The extra dim for time axis is for simplification of the code.
@@ -367,13 +368,17 @@ def get_trellis(emission, tokens, blank_id=0):
     trellis[1:, 0] = torch.cumsum(emission[:, 0], 0)
     trellis[0, -num_tokens:] = -float("inf")
     trellis[-num_tokens:, 0] = float("inf")
+
     for t in range(num_frame):
-        trellis[t + 1, 1:] = torch.maximum(
-            # Score for staying at the same token
+        try:
+            trellis[t + 1, 1:] = torch.maximum(
+                # Score for staying at the same token
             trellis[t, 1:] + emission[t, blank_id],
             # Score for changing to the next token
-            trellis[t, :-1] + emission[t, tokens],
-        )
+                trellis[t, :-1] + emission[t, tokens],
+            )
+        except IndexError:
+            trellis[t + 1, 1:] = trellis[t, 1:] + emission[t, blank_id]
     return trellis
 
 @dataclass

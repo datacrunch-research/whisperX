@@ -58,6 +58,7 @@ class WhisperModel(faster_whisper.WhisperModel):
                 length_penalty=options.length_penalty,
                 max_length=self.max_length,
                 suppress_blank=options.suppress_blank,
+                repetition_penalty=options.repetition_penalty,
                 suppress_tokens=options.suppress_tokens,
             )
 
